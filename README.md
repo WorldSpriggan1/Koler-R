@@ -6,10 +6,6 @@
           Koler
 </h1>
 
-<a href="https://hosted.weblate.org/engage/koler/">
-<img src="https://hosted.weblate.org/widgets/koler/-/svg-badge.svg" alt="Translation startus" />
-</a>
-
 <p align="center">
          A dialer, but it's simple and looks pretty good honestly!
 </p>
