@@ -1,3 +1,6 @@
+rootProject.name = "Koler-R"
+
+// Core modules
 include ':koler'
 include ':chooloolib'
 include ':kontacts'
