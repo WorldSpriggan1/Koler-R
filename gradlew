@@ -10,7 +10,12 @@
 # Resolve links: $0 may be a link
 PRG="$0"
 # Need this for relative symlinks.
+LINK_COUNT=0
+MAX_SYMLINKS=20
 while [ -h "$PRG" ] ; do
+    if [ $LINK_COUNT -ge $MAX_SYMLINKS ]; then
+        die "ERROR: Symlink resolution failed. Maximum symlinks exceeded: $MAX_SYMLINKS"
+    fi
     ls=`ls -ld "$PRG"`
     link=`expr "$ls" : '.*-> \(.*\)$'`
     if expr "$link" : '/.*' > /dev/null; then
@@ -18,11 +23,18 @@ while [ -h "$PRG" ] ; do
     else
         PRG=`dirname "$PRG"`"/$link"
     fi
+    LINK_COUNT=$((LINK_COUNT + 1))
 done
+
 SAVED="`pwd`"
-cd "`dirname \"$PRG\"`/" >/dev/null
-APP_HOME="`pwd -P`"
-cd "$SAVED" >/dev/null
+cd "`dirname "$PRG"`/" >/dev/null || die "ERROR: Failed to change directory to script location"
+APP_HOME="`pwd -P`" || die "ERROR: Failed to determine APP_HOME"
+cd "$SAVED" >/dev/null || die "ERROR: Failed to restore original directory"
+
+# Validate APP_HOME
+if [ ! -d "$APP_HOME" ]; then
+    die "ERROR: APP_HOME directory not found: $APP_HOME"
+fi
 
 APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
@@ -64,7 +76,12 @@ case "`uname`" in
     ;;
 esac
 
-CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+
+# Validate gradle-wrapper.jar exists
+if [ ! -f "$CLASSPATH" ]; then
+    die "ERROR: gradle-wrapper.jar not found at: $CLASSPATH"
+fi
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
@@ -82,20 +99,29 @@ location of your Java installation."
     fi
 else
     JAVACMD="java"
-    which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+    if ! command -v java >/dev/null 2>&1; then
+        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
 
 Please set the JAVA_HOME variable in your environment to match the
 location of your Java installation."
+    fi
+fi
+
+# Debug mode (set GRADLE_DEBUG=true to enable)
+if [ "$GRADLE_DEBUG" = "true" ]; then
+    echo "DEBUG: APP_HOME=$APP_HOME"
+    echo "DEBUG: CLASSPATH=$CLASSPATH"
+    echo "DEBUG: JAVACMD=$JAVACMD"
 fi
 
 # Increase the maximum file descriptors if we can.
-if [ "$cygwin" = "false" -a "$darwin" = "false" -a "$nonstop" = "false" ] ; then
+if [ "$cygwin" = "false" ] && [ "$darwin" = "false" ] && [ "$nonstop" = "false" ] ; then
     MAX_FD_LIMIT=`ulimit -H -n`
     if [ $? -eq 0 ] ; then
-        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
+        if [ "$MAX_FD" = "maximum" ] || [ "$MAX_FD" = "max" ] ; then
             MAX_FD="$MAX_FD_LIMIT"
         fi
-        ulimit -n $MAX_FD
+        ulimit -n "$MAX_FD"
         if [ $? -ne 0 ] ; then
             warn "Could not set maximum file descriptor limit: $MAX_FD"
         fi
@@ -111,9 +137,14 @@ fi
 
 # For Cygwin, switch paths to Windows format before running java
 if $cygwin ; then
-    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
-    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
-    JAVACMD=`cygpath --unix "$JAVACMD"`
+    APP_HOME=`cygpath --path --mixed "$APP_HOME"` || die "ERROR: cygpath failed for APP_HOME"
+    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"` || die "ERROR: cygpath failed for CLASSPATH"
+    JAVACMD=`cygpath --unix "$JAVACMD"` || die "ERROR: cygpath failed for JAVACMD"
+
+    # Verify cygpath is available
+    if ! command -v cygpath >/dev/null 2>&1; then
+        die "ERROR: cygpath not found. Cannot process Cygwin paths."
+    fi
 
     # We build the pattern for arguments to be converted via cygpath
     ROOTDIRSRAW=`find -L / -maxdepth 1 -mindepth 1 -type d 2>/dev/null`
@@ -130,10 +161,10 @@ if $cygwin ; then
     # Now convert the arguments - kludge to limit ourselves to /bin/sh
     i=0
     for arg in "$@" ; do
-        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
-        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
+        CHECK=`echo "$arg"|grep -c "$OURCYGPATTERN" 2>/dev/null || echo 0`
+        CHECK2=`echo "$arg"|grep -c "^-" 2>/dev/null || echo 0`
 
-        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
+        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then
             eval `echo args$i`=`cygpath --path --ignore --mixed "$arg"`
         else
             eval `echo args$i`="\"$arg\""
@@ -166,7 +197,7 @@ eval set -- $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS "\"-Dorg.gradle.appname=$A
 
 # by default we should be in the correct project dir, but when run from Finder on Mac, the cwd is wrong
 if [ "$(uname)" = "Darwin" ] && [ "$HOME" = "$PWD" ]; then
-  cd "$(dirname "$0")"
+  cd "$(dirname "$0")" || die "ERROR: Failed to change to script directory"
 fi
 
 exec "$JAVACMD" "$@"
