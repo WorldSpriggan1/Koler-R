@@ -14,12 +14,6 @@ Copylefted libre MVVM Android app. \
 Designed with the user in mind. \
 Believe us we want to make it good, we use it ourselves.
 
-## Translations
-
-<a href="https://hosted.weblate.org/engage/koler/">
-<img src="https://hosted.weblate.org/widgets/koler/-/multi-auto.svg" alt="Translation status" />
-</a>
-
 ## 👍 Support Availability
 We are aware the app needs more support and updates, due to feature requests and minor bugs.
 We are currently not fully available for supporting the app due to a lack of support (seeing as the app is gratis).
